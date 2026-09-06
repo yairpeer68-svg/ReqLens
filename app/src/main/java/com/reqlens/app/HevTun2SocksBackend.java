@@ -93,8 +93,7 @@ public final class HevTun2SocksBackend implements ForwardingBackend {
             if (tun == null) throw new IllegalStateException("VpnService.Builder.establish() returned null");
 
             File config = writeHevConfig(service.getCacheDir(), socksPort);
-            boolean ok = TProxyService.TProxyStartService(config.getAbsolutePath(), tun.getFd());
-            if (!ok) throw new IllegalStateException("HEV tun2socks refused to start");
+            TProxyService.TProxyStartService(config.getAbsolutePath(), tun.getFd());
             started = true;
         } catch (Exception e) {
             cleanup();
@@ -105,7 +104,7 @@ public final class HevTun2SocksBackend implements ForwardingBackend {
     @Override public synchronized void stop() { cleanup(); }
 
     private void cleanup() {
-        try { if (TProxyService.TProxyIsRunning()) TProxyService.TProxyStopService(); } catch (Throwable ignored) { }
+        try { TProxyService.TProxyStopService(); } catch (Throwable ignored) { }
         if (tun != null) try { tun.close(); } catch (Exception ignored) { }
         tun = null;
         if (socks != null) try { socks.stop(); } catch (Exception ignored) { }

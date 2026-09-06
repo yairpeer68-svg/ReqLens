@@ -1,6 +1,7 @@
 package com.reqlens.app;
 
 import org.json.JSONObject;
+import org.json.JSONException;
 
 public final class FlowRecord {
     public long id;
@@ -32,13 +33,31 @@ public final class FlowRecord {
 
     public JSONObject toJson() {
         JSONObject o = new JSONObject();
-        o.put("id", id); o.put("flowTag", flowTag); o.put("firstSeen", firstSeen); o.put("lastSeen", lastSeen);
-        o.put("uid", uid); o.put("appPackage", appPackage); o.put("appLabel", appLabel);
-        o.put("ipVersion", ipVersion); o.put("protocol", protocol); o.put("protocolName", protocolName);
-        o.put("sourceIp", sourceIp); o.put("sourcePort", sourcePort);
-        o.put("destinationIp", destinationIp); o.put("destinationPort", destinationPort);
-        o.put("host", host); o.put("tlsSni", tlsSni); o.put("tlsAlpn", tlsAlpn); o.put("tlsVersion", tlsVersion);
-        o.put("quic", quic); o.put("packets", packets); o.put("bytes", bytes);
+        try {
+            o.put("id", id);
+            o.put("flowTag", flowTag);
+            o.put("firstSeen", firstSeen);
+            o.put("lastSeen", lastSeen);
+            o.put("uid", uid);
+            o.put("appPackage", appPackage);
+            o.put("appLabel", appLabel);
+            o.put("ipVersion", ipVersion);
+            o.put("protocol", protocol);
+            o.put("protocolName", protocolName);
+            o.put("sourceIp", sourceIp);
+            o.put("sourcePort", sourcePort);
+            o.put("destinationIp", destinationIp);
+            o.put("destinationPort", destinationPort);
+            o.put("host", host);
+            o.put("tlsSni", tlsSni);
+            o.put("tlsAlpn", tlsAlpn);
+            o.put("tlsVersion", tlsVersion);
+            o.put("quic", quic);
+            o.put("packets", packets);
+            o.put("bytes", bytes);
+        } catch (JSONException e) {
+            throw new IllegalStateException("Failed to serialize FlowRecord", e);
+        }
         return o;
     }
 }
