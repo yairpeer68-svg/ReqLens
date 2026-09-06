@@ -1,0 +1,3 @@
+package com.reqlens.app;
+import android.app.*;import android.os.Bundle;import android.widget.*;
+public final class ComparerActivity extends Activity{public void onCreate(Bundle b){super.onCreate(b);LinearLayout r=new LinearLayout(this);r.setOrientation(LinearLayout.VERTICAL);r.setPadding(16,16,16,16);EditText a=new EditText(this),c=new EditText(this);a.setHint("Text A");c.setHint("Text B");a.setMinLines(5);c.setMinLines(5);TextView o=new TextView(this);o.setTextIsSelectable(true);Button x=new Button(this);x.setText("COMPARE");x.setOnClickListener(v->o.setText(TextDiff.summarize(a.getText().toString(),c.getText().toString())));r.addView(a);r.addView(c);r.addView(x);r.addView(o);setContentView(r);}}

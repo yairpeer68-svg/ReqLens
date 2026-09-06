@@ -1,0 +1,21 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.reqlens.app'
+    compileSdk 36
+
+    defaultConfig {
+        applicationId 'com.reqlens.app'
+        minSdk 26
+        targetSdk 36
+        versionCode 7
+        versionName '0.7.0-alpha'
+    }
+}
+
+dependencies {
+    implementation 'androidx.core:core:1.17.0'
+    implementation 'com.wgtunnel:hevtunnel:1.0.4'
+}

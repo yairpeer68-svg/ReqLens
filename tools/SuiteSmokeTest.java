@@ -1,0 +1,2 @@
+package com.reqlens.app;
+public final class SuiteSmokeTest { public static void main(String[]a){String d=TextDiff.summarize("a\nb","a\nc");if(!d.contains("- b")||!d.contains("+ c"))throw new AssertionError(d); RequestRecord r=new RequestRecord();r.method="GET";r.url="https://api.example.com";RewriteRule x=new RewriteRule();x.hostContains="example.com";x.headerName="X-Test";x.headerValue="1";x.apply(r);if(!"1".equals(r.requestHeaders.get("X-Test")))throw new AssertionError();System.out.println("SuiteSmokeTest PASS");}}
