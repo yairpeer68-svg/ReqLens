@@ -17,6 +17,8 @@ import java.util.*;
 
 public final class CaptureActivity extends Activity {
     private static final int VPN_REQUEST=301;
+    private boolean waitingForVpnPermission=false;
+    private long vpnRequestStartedAt=0L;
     private final ArrayList<AppEntry> all=new ArrayList<>(), visible=new ArrayList<>();
     private AppAdapter adapter; private TextView selectedText,status; private CheckBox mitm;
 
@@ -24,6 +26,7 @@ public final class CaptureActivity extends Activity {
 
     @Override public void onCreate(Bundle b){super.onCreate(b);setContentView(ui());loadApps();}
     @Override protected void onStart(){super.onStart();IntentFilter f=new IntentFilter(CaptureVpnService.ACTION_STATE);if(android.os.Build.VERSION.SDK_INT>=33)registerReceiver(receiver,f,RECEIVER_NOT_EXPORTED);else registerReceiver(receiver,f);}
+    @Override protected void onResume(){super.onResume();if(waitingForVpnPermission){Intent check=VpnService.prepare(this);if(check==null){waitingForVpnPermission=false;status.setText("VPN permission granted. Starting session…");startServiceNow();}else if(System.currentTimeMillis()-vpnRequestStartedAt>1200){status.setText("Android returned without granting VPN permission. Tap START SESSION again; if no system dialog appears, open Android Settings > VPN and remove any stale ReqLens VPN entry, then retry.");}}}
     @Override protected void onStop(){try{unregisterReceiver(receiver);}catch(Exception ignored){}super.onStop();}
 
     private View ui(){
@@ -57,8 +60,8 @@ public final class CaptureActivity extends Activity {
     private AppEntry selected(){for(AppEntry a:all)if(a.selected)return a;return null;}
     private void filter(String q){String x=q==null?"":q.trim().toLowerCase(Locale.ROOT);visible.clear();for(AppEntry a:all)if(x.isEmpty()||a.label.toLowerCase(Locale.ROOT).contains(x)||a.packageName.toLowerCase(Locale.ROOT).contains(x))visible.add(a);if(adapter!=null)adapter.notifyDataSetChanged();}
 
-    private void prepareVpn(){AppEntry s=selected();if(s==null){new AlertDialog.Builder(this).setMessage("Select one target app first.").setPositiveButton("OK",null).show();return;}boolean decrypt=mitm.isChecked();getSharedPreferences("reqlens_capture",MODE_PRIVATE).edit().putBoolean("app_mitm",decrypt).apply();if(decrypt&&new MitmCaManager(this).loadStoredCertificate()==null){new AlertDialog.Builder(this).setTitle("ReqLens CA required").setMessage("Generate/export and install the ReqLens CA first. Then return and start the app session.").setPositiveButton("OPEN CA SETUP",(d,w)->startActivity(new Intent(this,MitmActivity.class))).setNegativeButton("CANCEL",null).show();return;}Intent i=VpnService.prepare(this);if(i!=null)startActivityForResult(i,VPN_REQUEST);else startServiceNow();}
-    @Override protected void onActivityResult(int req,int result,Intent data){super.onActivityResult(req,result,data);if(req==VPN_REQUEST&&result==RESULT_OK)startServiceNow();else if(req==VPN_REQUEST)status.setText("VPN permission was not granted");}
+    private void prepareVpn(){AppEntry s=selected();if(s==null){new AlertDialog.Builder(this).setMessage("Select one target app first.").setPositiveButton("OK",null).show();return;}boolean decrypt=mitm.isChecked();getSharedPreferences("reqlens_capture",MODE_PRIVATE).edit().putBoolean("app_mitm",decrypt).apply();if(decrypt&&new MitmCaManager(this).loadStoredCertificate()==null){new AlertDialog.Builder(this).setTitle("ReqLens CA required").setMessage("Generate/export and install the ReqLens CA first. Then return and start the app session.").setPositiveButton("OPEN CA SETUP",(d,w)->startActivity(new Intent(this,MitmActivity.class))).setNegativeButton("CANCEL",null).show();return;}try{Intent i=VpnService.prepare(this);if(i==null){status.setText("VPN permission already granted. Starting session…");startServiceNow();return;}waitingForVpnPermission=true;vpnRequestStartedAt=System.currentTimeMillis();status.setText("Waiting for Android VPN confirmation…");startActivityForResult(i,VPN_REQUEST);}catch(Exception e){waitingForVpnPermission=false;status.setText("Could not open Android VPN confirmation: "+e.getClass().getSimpleName()+": "+String.valueOf(e.getMessage()));}}
+    @Override protected void onActivityResult(int req,int result,Intent data){super.onActivityResult(req,result,data);if(req!=VPN_REQUEST)return;Intent check=VpnService.prepare(this);if(result==RESULT_OK||check==null){waitingForVpnPermission=false;status.setText("VPN permission granted. Starting session…");startServiceNow();}else{waitingForVpnPermission=false;long elapsed=System.currentTimeMillis()-vpnRequestStartedAt;status.setText("Android VPN confirmation returned without permission (result="+result+", "+elapsed+" ms). No session was started.");}}
     private void startServiceNow(){status.setText("Starting app-only VPN session…");Intent i=new Intent(this,CaptureVpnService.class).setAction(CaptureVpnService.ACTION_START);startForegroundService(i);}
     private void stopCapture(){Intent i=new Intent(this,CaptureVpnService.class).setAction(CaptureVpnService.ACTION_STOP);startService(i);status.setText("Stopping…");}
 
