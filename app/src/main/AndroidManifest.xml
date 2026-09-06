@@ -15,18 +15,23 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:usesCleartextTraffic="true"
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
+        <activity android:name=".TrafficMapActivity" android:exported="false" />
+        <activity android:name=".HostSummaryActivity" android:exported="false" />
+        <activity android:name=".ProjectCompareActivity" android:exported="false" />
         <activity android:name=".DashboardActivity" android:exported="false" />
         <activity android:name=".ToolsActivity" android:exported="false" />
         <activity android:name=".SettingsActivity" android:exported="false" />
         <activity android:name=".BrowserActivity" android:exported="false" />
         <activity android:name=".BrowserHistoryActivity" android:exported="false" />
         <activity android:name=".ProxyHistoryActivity" android:exported="false" />
+        <activity android:name=".InterceptAuditActivity" android:exported="false" />
         <activity android:name=".InterceptActivity" android:exported="false" />
         <activity android:name=".RulesActivity" android:exported="false" />
         <activity android:name=".ProjectsActivity" android:exported="false" />
         <activity android:name=".IntruderActivity" android:exported="false" />
         <activity android:name=".WebSocketHistoryActivity" android:exported="false" />
         <activity android:name=".DiagnosticsActivity" android:exported="false" />
+        <activity android:name=".BodyToolsActivity" android:exported="false" />
         <activity android:name=".RepeaterActivity" android:exported="false" />
         <activity android:name=".DecoderActivity" android:exported="false" />
         <activity android:name=".ComparerActivity" android:exported="false" />

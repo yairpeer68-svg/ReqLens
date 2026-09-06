@@ -5,6 +5,7 @@ public final class BrowserHistoryRepository {
  private static final int MAX=1500;private static final ArrayList<BrowserRequest>ITEMS=new ArrayList<>();private static Context app;private BrowserHistoryRepository(){}
  public static synchronized void init(Context c){if(app!=null)return;app=c.getApplicationContext();load();}
  public static synchronized void add(BrowserRequest item){if(item.projectId==0){try{item.projectId=ProjectRepository.active().id;}catch(Exception ignored){item.projectId=1;}}ITEMS.add(item);trim();save();ProxyHistoryRepository.addHttp(item.toRequestRecord(),"browser");}
+ public static synchronized List<BrowserRequest> snapshotAll(){return new ArrayList<>(ITEMS);}
  public static synchronized List<BrowserRequest> snapshotNewestFirst(){purgeExpired();ArrayList<BrowserRequest>out=new ArrayList<>(ITEMS);Collections.reverse(out);return out;}
  public static synchronized List<BrowserRequest> snapshotActiveProject(){long id=1;try{id=ProjectRepository.active().id;}catch(Exception ignored){}ArrayList<BrowserRequest>out=new ArrayList<>();for(BrowserRequest x:snapshotNewestFirst())if(x.projectId==id||x.projectId==0)out.add(x);return out;}
 
