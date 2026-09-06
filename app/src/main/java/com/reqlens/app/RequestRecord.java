@@ -2,6 +2,7 @@ package com.reqlens.app;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
+import org.json.JSONException;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -21,17 +22,21 @@ public final class RequestRecord {
 
     public JSONObject toJson() {
         JSONObject o = new JSONObject();
-        o.put("timestamp", timestamp);
-        o.put("method", method);
-        o.put("url", url);
-        o.put("requestHeaders", mapToJson(requestHeaders));
-        o.put("requestBody", requestBody);
-        o.put("statusCode", statusCode);
-        o.put("statusText", statusText);
-        o.put("responseHeaders", mapToJson(responseHeaders));
-        o.put("responseBody", responseBody);
-        o.put("durationMs", durationMs);
-        o.put("error", error);
+        try {
+            o.put("timestamp", timestamp);
+            o.put("method", method);
+            o.put("url", url);
+            o.put("requestHeaders", mapToJson(requestHeaders));
+            o.put("requestBody", requestBody);
+            o.put("statusCode", statusCode);
+            o.put("statusText", statusText);
+            o.put("responseHeaders", mapToJson(responseHeaders));
+            o.put("responseBody", responseBody);
+            o.put("durationMs", durationMs);
+            o.put("error", error);
+        } catch (JSONException e) {
+            throw new IllegalStateException("Failed to serialize RequestRecord", e);
+        }
         return o;
     }
 
@@ -53,7 +58,13 @@ public final class RequestRecord {
 
     private static JSONObject mapToJson(Map<String, String> map) {
         JSONObject o = new JSONObject();
-        for (Map.Entry<String, String> e : map.entrySet()) o.put(e.getKey(), e.getValue());
+        try {
+            for (Map.Entry<String, String> e : map.entrySet()) {
+                o.put(e.getKey(), e.getValue());
+            }
+        } catch (JSONException e) {
+            throw new IllegalStateException("Failed to serialize headers", e);
+        }
         return o;
     }
 
