@@ -16,6 +16,9 @@
         android:usesCleartextTraffic="true"
         android:theme="@style/Theme.ReqLens"
         android:networkSecurityConfig="@xml/network_security_config">
+        <activity android:name=".ResearchSuiteActivity" android:exported="false" />
+        <activity android:name=".FeatureDetailActivity" android:exported="false" />
+        <activity android:name=".EvidenceVaultActivity" android:exported="false" />
         <activity android:name=".MitmActivity" android:exported="false" />
         <activity android:name=".MitmHistoryActivity" android:exported="false" />
         <activity android:name=".TrafficMapActivity" android:exported="false" />

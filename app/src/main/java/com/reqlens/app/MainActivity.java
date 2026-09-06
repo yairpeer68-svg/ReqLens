@@ -68,6 +68,7 @@ public final class MainActivity extends Activity {
         w.addView(text("WORKSPACE", 12, true));
         LinearLayout wr1=row(); wr1.addView(buttonWeight("BROWSER", BrowserActivity.class)); wr1.addView(buttonWeight("DASHBOARD", DashboardActivity.class)); w.addView(wr1);
         LinearLayout wr2=row(); wr2.addView(buttonWeight("PROJECTS", ProjectsActivity.class)); wr2.addView(buttonWeight("TOOLS", ToolsActivity.class)); w.addView(wr2);
+        LinearLayout wr3=row(); wr3.addView(buttonWeight("RESEARCH 80", ResearchSuiteActivity.class)); wr3.addView(buttonWeight("EVIDENCE", EvidenceVaultActivity.class)); w.addView(wr3);
         workspace.addView(w); root.addView(workspace, matchWrap(0, dp(10)));
 
         TextView footer = text("Authorized testing only • no pinning or mTLS bypass", 12, false);
