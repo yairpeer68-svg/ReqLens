@@ -1,211 +1,30 @@
 package com.reqlens.app;
 
-import android.app.Activity;
-import android.content.Intent;
-import android.graphics.Typeface;
-import android.net.Uri;
-import android.os.Bundle;
-import android.view.KeyEvent;
-import android.view.View;
-import android.view.ViewGroup;
-import android.webkit.CookieManager;
-import android.webkit.WebChromeClient;
-import android.webkit.WebResourceError;
-import android.webkit.WebResourceRequest;
-import android.webkit.WebResourceResponse;
-import android.webkit.WebSettings;
-import android.webkit.WebView;
-import android.webkit.WebViewClient;
-import android.widget.Button;
-import android.widget.EditText;
-import android.widget.LinearLayout;
-import android.widget.ProgressBar;
-import android.widget.TextView;
-import android.widget.Toast;
-import android.widget.CheckBox;
-
-import java.util.Locale;
-import java.util.Map;
+import android.app.*;import android.content.*;import android.graphics.Typeface;import android.net.Uri;import android.os.Bundle;import android.view.*;import android.webkit.*;import android.widget.*;import java.util.*;
 
 public final class BrowserActivity extends Activity {
-    private WebView web;
-    private EditText address;
-    private TextView stats;
-    private ProgressBar progress;
-    private int requestCount;
-    private int errorCount;
-
-    @Override public void onCreate(Bundle state) {
-        super.onCreate(state);
-        ProjectRepository.init(this);
-        BrowserHistoryRepository.init(this);
-        setContentView(buildUi());
-        configureWebView();
-        String start = getIntent().getStringExtra("url");
-        navigate(start == null || start.trim().isEmpty() ? "https://example.com" : start);
-    }
-
-    private View buildUi() {
-        LinearLayout root = new LinearLayout(this);
-        root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(dp(8), dp(8), dp(8), dp(8));
-
-        LinearLayout titleRow = new LinearLayout(this);
-        titleRow.setOrientation(LinearLayout.HORIZONTAL);
-        TextView title = new TextView(this);
-        title.setText("ReqLens Browser");
-        title.setTextSize(20);
-        title.setTypeface(Typeface.DEFAULT_BOLD);
-        titleRow.addView(title, new LinearLayout.LayoutParams(0, dp(42), 1));
-        Button history = new Button(this);
-        history.setText("HISTORY");
-        history.setOnClickListener(v -> startActivity(new Intent(this, BrowserHistoryActivity.class)));
-        titleRow.addView(history, new LinearLayout.LayoutParams(dp(120), dp(42)));
-        root.addView(titleRow);
-
-        LinearLayout nav = new LinearLayout(this);
-        nav.setOrientation(LinearLayout.HORIZONTAL);
-        Button back = button("‹", v -> { if (web.canGoBack()) web.goBack(); });
-        Button forward = button("›", v -> { if (web.canGoForward()) web.goForward(); });
-        Button reload = button("↻", v -> web.reload());
-        nav.addView(back, new LinearLayout.LayoutParams(dp(48), dp(48)));
-        nav.addView(forward, new LinearLayout.LayoutParams(dp(48), dp(48)));
-        nav.addView(reload, new LinearLayout.LayoutParams(dp(48), dp(48)));
-
-        address = new EditText(this);
-        address.setSingleLine(true);
-        address.setHint("https://example.com");
-        address.setOnEditorActionListener((v, action, event) -> { navigate(address.getText().toString()); return true; });
-        nav.addView(address, new LinearLayout.LayoutParams(0, dp(48), 1));
-        Button go = button("GO", v -> navigate(address.getText().toString()));
-        nav.addView(go, new LinearLayout.LayoutParams(dp(64), dp(48)));
-        root.addView(nav);
-
-        progress = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
-        progress.setMax(100);
-        root.addView(progress, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(4)));
-
-        stats = new TextView(this);
-        stats.setTextSize(12);
-        stats.setPadding(0, dp(4), 0, dp(4));
-        root.addView(stats);
-
-        LinearLayout controls = new LinearLayout(this);
-        controls.setOrientation(LinearLayout.HORIZONTAL);
-        Button external = button("OPEN ↗", v -> { try { startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(web.getUrl()))); } catch (Exception e) { Toast.makeText(this, "Cannot open externally", Toast.LENGTH_SHORT).show(); } });
-        controls.addView(external, new LinearLayout.LayoutParams(0, dp(42), 1));
-        Button clearSite = button("CLEAR SITE DATA", v -> { CookieManager.getInstance().removeAllCookies(null); web.clearCache(true); web.clearHistory(); Toast.makeText(this, "Browser site data cleared", Toast.LENGTH_SHORT).show(); });
-        controls.addView(clearSite, new LinearLayout.LayoutParams(0, dp(42), 1));
-        Button settings = button("SETTINGS", v -> startActivity(new Intent(this, SettingsActivity.class)));
-        controls.addView(settings, new LinearLayout.LayoutParams(0, dp(42), 1));
-        root.addView(controls);
-
-        web = new WebView(this);
-        root.addView(web, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1));
-        updateStats();
-        return root;
-    }
-
-    private Button button(String text, View.OnClickListener listener) {
-        Button b = new Button(this); b.setText(text); b.setOnClickListener(listener); return b;
-    }
-
-    private void configureWebView() {
-        WebSettings s = web.getSettings();
-        s.setJavaScriptEnabled(SuiteSettings.javascript(this));
-        s.setDomStorageEnabled(!SuiteSettings.incognito(this));
-        s.setBuiltInZoomControls(true);
-        s.setDisplayZoomControls(false);
-        s.setSupportZoom(true);
-        s.setAllowFileAccess(false);
-        s.setAllowContentAccess(false);
-        s.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
-        s.setSafeBrowsingEnabled(true);
-        if (SuiteSettings.desktopUa(this)) s.setUserAgentString("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/140 Safari/537.36");
-        if (SuiteSettings.incognito(this)) { CookieManager.getInstance().setAcceptCookie(false); web.clearHistory(); web.clearCache(true); } else CookieManager.getInstance().setAcceptCookie(true);
-
-        web.setWebChromeClient(new WebChromeClient() {
-            @Override public void onProgressChanged(WebView view, int value) {
-                progress.setProgress(value);
-                progress.setVisibility(value >= 100 ? View.GONE : View.VISIBLE);
-            }
-        });
-
-        web.setWebViewClient(new WebViewClient() {
-            @Override public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
-                record(request, -1, "", "");
-                return null;
-            }
-
-            @Override public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) {
-                address.setText(url);
-            }
-
-            @Override public void onPageFinished(WebView view, String url) {
-                address.setText(url);
-                setTitle(view.getTitle() == null ? "ReqLens Browser" : view.getTitle());
-            }
-
-            @Override public void onReceivedHttpError(WebView view, WebResourceRequest request, WebResourceResponse response) {
-                record(request, response.getStatusCode(), response.getMimeType(), "HTTP " + response.getStatusCode());
-                errorCount++;
-                updateStats();
-            }
-
-            @Override public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
-                if (request.isForMainFrame()) {
-                    errorCount++;
-                    Toast.makeText(BrowserActivity.this, String.valueOf(error.getDescription()), Toast.LENGTH_SHORT).show();
-                }
-                updateStats();
-            }
-        });
-    }
-
-    private void record(WebResourceRequest request, int status, String mime, String error) {
-        BrowserRequest item = new BrowserRequest();
-        item.timestamp = System.currentTimeMillis();
-        item.method = request.getMethod() == null ? "GET" : request.getMethod();
-        item.url = request.getUrl().toString();
-        item.statusCode = status;
-        item.mimeType = mime == null ? "" : mime;
-        item.mainFrame = request.isForMainFrame();
-        item.error = error == null ? "" : error;
-        for (Map.Entry<String, String> e : request.getRequestHeaders().entrySet()) item.headers.put(e.getKey(), e.getValue());
-        BrowserHistoryRepository.add(item);
-        requestCount++;
-        runOnUiThread(this::updateStats);
-    }
-
-    private void navigate(String raw) {
-        String value = raw == null ? "" : raw.trim();
-        if (value.isEmpty()) return;
-        if (!value.contains("://")) {
-            if (value.contains(".") && !value.contains(" ")) value = "https://" + value;
-            else value = "https://www.google.com/search?q=" + Uri.encode(value);
-        }
-        String lower = value.toLowerCase(Locale.ROOT);
-        if (!(lower.startsWith("https://") || lower.startsWith("http://"))) {
-            Toast.makeText(this, "Only HTTP/HTTPS URLs are supported", Toast.LENGTH_SHORT).show();
-            return;
-        }
-        address.setText(value);
-        web.loadUrl(value);
-    }
-
-    private void updateStats() {
-        stats.setText("Requests: " + requestCount + "   Errors: " + errorCount + "   Saved: " + BrowserHistoryRepository.size() + "   •   " + (SuiteSettings.incognito(this)?"Incognito • ":"") + (SuiteSettings.desktopUa(this)?"Desktop UA • ":"") + "Standard TLS validation");
-    }
-
-    @Override public boolean onKeyDown(int keyCode, KeyEvent event) {
-        if (keyCode == KeyEvent.KEYCODE_BACK && web.canGoBack()) { web.goBack(); return true; }
-        return super.onKeyDown(keyCode, event);
-    }
-
-    @Override protected void onDestroy() {
-        if (web != null) { web.stopLoading(); web.destroy(); }
-        super.onDestroy();
-    }
-
-    private int dp(int v) { return Math.round(v * getResources().getDisplayMetrics().density); }
+ private final ArrayList<WebView>tabs=new ArrayList<>();private final ArrayList<String>tabNames=new ArrayList<>();private ArrayAdapter<String>tabAdapter;private WebView web;private FrameLayout webBox;private EditText address;private TextView stats;private ProgressBar progress;private Spinner tabSpinner;private int requestCount,errorCount;private final ArrayList<String>redirectChain=new ArrayList<>();
+ @Override public void onCreate(Bundle state){super.onCreate(state);ProjectRepository.init(this);BrowserHistoryRepository.init(this);setContentView(buildUi());String start=getIntent().getStringExtra("url");newTab(start==null||start.trim().isEmpty()?"https://example.com":start);}
+ private View buildUi(){LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setPadding(dp(8),dp(8),dp(8),dp(8));LinearLayout titleRow=new LinearLayout(this);TextView title=new TextView(this);title.setText("ReqLens Browser");title.setTextSize(20);title.setTypeface(Typeface.DEFAULT_BOLD);titleRow.addView(title,new LinearLayout.LayoutParams(0,dp(42),1));Button hist=button("HISTORY",v->startActivity(new Intent(this,BrowserHistoryActivity.class)));titleRow.addView(hist,new LinearLayout.LayoutParams(dp(120),dp(42)));root.addView(titleRow);
+  LinearLayout tabsRow=new LinearLayout(this);tabSpinner=new Spinner(this);tabAdapter=new ArrayAdapter<>(this,android.R.layout.simple_spinner_dropdown_item,tabNames);tabSpinner.setAdapter(tabAdapter);tabSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener(){public void onItemSelected(AdapterView<?>p,View v,int pos,long id){switchTab(pos);}public void onNothingSelected(AdapterView<?>p){}});tabsRow.addView(tabSpinner,new LinearLayout.LayoutParams(0,dp(44),1));Button plus=button("+",v->newTab("https://example.com"));tabsRow.addView(plus,new LinearLayout.LayoutParams(dp(52),dp(44)));Button close=button("×",v->closeTab());tabsRow.addView(close,new LinearLayout.LayoutParams(dp(52),dp(44)));root.addView(tabsRow);
+  LinearLayout nav=new LinearLayout(this);nav.addView(button("‹",v->{if(web!=null&&web.canGoBack())web.goBack();}),new LinearLayout.LayoutParams(dp(48),dp(48)));nav.addView(button("›",v->{if(web!=null&&web.canGoForward())web.goForward();}),new LinearLayout.LayoutParams(dp(48),dp(48)));nav.addView(button("↻",v->{if(web!=null)web.reload();}),new LinearLayout.LayoutParams(dp(48),dp(48)));address=new EditText(this);address.setSingleLine(true);address.setHint("https://example.com");address.setOnEditorActionListener((v,a,e)->{navigate(address.getText().toString());return true;});nav.addView(address,new LinearLayout.LayoutParams(0,dp(48),1));nav.addView(button("GO",v->navigate(address.getText().toString())),new LinearLayout.LayoutParams(dp(64),dp(48)));root.addView(nav);
+  progress=new ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal);progress.setMax(100);root.addView(progress,new LinearLayout.LayoutParams(-1,dp(4)));stats=new TextView(this);stats.setTextSize(12);stats.setPadding(0,dp(4),0,dp(4));root.addView(stats);
+  LinearLayout tools=new LinearLayout(this);tools.addView(button("COOKIES",v->showCookies()),new LinearLayout.LayoutParams(0,dp(42),1));tools.addView(button("CHAIN",v->showChain()),new LinearLayout.LayoutParams(0,dp(42),1));tools.addView(button("CLEAR SITE",v->clearSite()),new LinearLayout.LayoutParams(0,dp(42),1));tools.addView(button("OPEN ↗",v->openExternal()),new LinearLayout.LayoutParams(0,dp(42),1));tools.addView(button("SETTINGS",v->startActivity(new Intent(this,SettingsActivity.class))),new LinearLayout.LayoutParams(0,dp(42),1));root.addView(tools);
+  webBox=new FrameLayout(this);root.addView(webBox,new LinearLayout.LayoutParams(-1,0,1));updateStats();return root;}
+ private void newTab(String url){WebView w=new WebView(this);configureWebView(w);tabs.add(w);tabNames.add("Tab "+tabs.size());tabAdapter.notifyDataSetChanged();tabSpinner.setSelection(tabs.size()-1);switchTab(tabs.size()-1);navigate(url);}
+ private void closeTab(){if(tabs.isEmpty())return;if(tabs.size()==1){web.loadUrl("about:blank");return;}int i=tabs.indexOf(web);WebView old=tabs.remove(i);old.stopLoading();old.destroy();tabNames.remove(i);tabAdapter.notifyDataSetChanged();switchTab(Math.max(0,i-1));tabSpinner.setSelection(Math.max(0,i-1));}
+ private void switchTab(int pos){if(pos<0||pos>=tabs.size())return;web=tabs.get(pos);webBox.removeAllViews();webBox.addView(web,new FrameLayout.LayoutParams(-1,-1));address.setText(web.getUrl()==null?"":web.getUrl());}
+ private Button button(String text,View.OnClickListener l){Button b=new Button(this);b.setText(text);b.setOnClickListener(l);return b;}
+ private void configureWebView(WebView w){WebSettings s=w.getSettings();s.setJavaScriptEnabled(SuiteSettings.javascript(this));s.setDomStorageEnabled(!SuiteSettings.incognito(this));s.setBuiltInZoomControls(true);s.setDisplayZoomControls(false);s.setSupportZoom(true);s.setAllowFileAccess(false);s.setAllowContentAccess(false);s.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);s.setSafeBrowsingEnabled(true);if(SuiteSettings.desktopUa(this))s.setUserAgentString("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/140 Safari/537.36");CookieManager.getInstance().setAcceptCookie(!SuiteSettings.incognito(this));w.setWebChromeClient(new WebChromeClient(){@Override public void onProgressChanged(WebView view,int value){if(view==web){progress.setProgress(value);progress.setVisibility(value>=100?View.GONE:View.VISIBLE);}}});w.setWebViewClient(new WebViewClient(){@Override public WebResourceResponse shouldInterceptRequest(WebView view,WebResourceRequest request){record(request,-1,"","");return null;}@Override public void onPageStarted(WebView view,String url,android.graphics.Bitmap favicon){if(view==web){address.setText(url);redirectChain.add(url);while(redirectChain.size()>30)redirectChain.remove(0);}}@Override public void onPageFinished(WebView view,String url){if(view==web)address.setText(url);int i=tabs.indexOf(view);if(i>=0){String title=view.getTitle();tabNames.set(i,title==null||title.trim().isEmpty()?shortHost(url):trim(title,24));tabAdapter.notifyDataSetChanged();}}@Override public void onReceivedHttpError(WebView view,WebResourceRequest req,WebResourceResponse resp){record(req,resp.getStatusCode(),resp.getMimeType(),"HTTP "+resp.getStatusCode());errorCount++;runOnUiThread(()->updateStats());}@Override public void onReceivedError(WebView view,WebResourceRequest req,WebResourceError err){if(req.isForMainFrame()&&view==web){errorCount++;runOnUiThread(()->Toast.makeText(BrowserActivity.this,String.valueOf(err.getDescription()),Toast.LENGTH_SHORT).show());}runOnUiThread(()->updateStats());}});}
+ private void record(WebResourceRequest req,int status,String mime,String error){BrowserRequest x=new BrowserRequest();x.timestamp=System.currentTimeMillis();x.method=req.getMethod()==null?"GET":req.getMethod();x.url=req.getUrl().toString();x.statusCode=status;x.mimeType=mime==null?"":mime;x.mainFrame=req.isForMainFrame();x.error=error==null?"":error;for(Map.Entry<String,String>e:req.getRequestHeaders().entrySet())x.headers.put(e.getKey(),e.getValue());BrowserHistoryRepository.add(x);requestCount++;runOnUiThread(this::updateStats);}
+ private void navigate(String raw){String value=raw==null?"":raw.trim();if(value.isEmpty()||web==null)return;if(!value.contains("://")){if(value.contains(".")&&!value.contains(" "))value="https://"+value;else value="https://www.google.com/search?q="+Uri.encode(value);}String lower=value.toLowerCase(Locale.ROOT);if(!(lower.startsWith("https://")||lower.startsWith("http://"))){Toast.makeText(this,"Only HTTP/HTTPS URLs are supported",Toast.LENGTH_SHORT).show();return;}address.setText(value);web.loadUrl(value);}
+ private void showCookies(){if(web==null||web.getUrl()==null)return;String c=CookieManager.getInstance().getCookie(web.getUrl());new AlertDialog.Builder(this).setTitle("Cookies for current site").setMessage(c==null||c.isEmpty()?"No cookies visible":c).setPositiveButton("OK",null).show();}
+ private void showChain(){StringBuilder s=new StringBuilder();for(int i=0;i<redirectChain.size();i++)s.append(i+1).append(". ").append(redirectChain.get(i)).append('\n');new AlertDialog.Builder(this).setTitle("Navigation / redirect chain").setMessage(s.length()==0?"No navigation recorded":s.toString()).setPositiveButton("OK",null).show();}
+ private void clearSite(){CookieManager.getInstance().removeAllCookies(null);if(web!=null){web.clearCache(true);web.clearHistory();}Toast.makeText(this,"Browser site data cleared",Toast.LENGTH_SHORT).show();}
+ private void openExternal(){try{if(web!=null&&web.getUrl()!=null)startActivity(new Intent(Intent.ACTION_VIEW,Uri.parse(web.getUrl())));}catch(Exception e){Toast.makeText(this,"Cannot open externally",Toast.LENGTH_SHORT).show();}}
+ private void updateStats(){stats.setText("Tabs: "+tabs.size()+" • Requests: "+requestCount+" • Errors: "+errorCount+" • Saved: "+BrowserHistoryRepository.size()+" • "+(SuiteSettings.incognito(this)?"Incognito • ":"")+(SuiteSettings.desktopUa(this)?"Desktop UA • ":"")+"Standard TLS validation");}
+ private String shortHost(String u){try{return Uri.parse(u).getHost();}catch(Exception e){return "Tab";}}private String trim(String s,int n){return s.length()<=n?s:s.substring(0,n-1)+"…";}
+ @Override public void onBackPressed(){if(web!=null&&web.canGoBack())web.goBack();else super.onBackPressed();}
+ @Override protected void onDestroy(){for(WebView w:tabs){try{w.stopLoading();w.destroy();}catch(Exception ignored){}}tabs.clear();super.onDestroy();}
+ private int dp(int v){return Math.round(v*getResources().getDisplayMetrics().density);}
 }

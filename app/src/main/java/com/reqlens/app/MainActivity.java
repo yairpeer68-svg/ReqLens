@@ -69,6 +69,7 @@ public final class MainActivity extends Activity {
         ProjectRepository.init(this);
         RequestAnnotationRepository.init(this);
         BrowserHistoryRepository.init(this);
+        ProxyHistoryRepository.init(this);
         loadHistory();
         setContentView(buildUi());
         applyFilter();

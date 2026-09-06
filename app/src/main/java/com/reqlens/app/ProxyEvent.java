@@ -1,28 +1,8 @@
 package com.reqlens.app;
-
+import org.json.*;
 public final class ProxyEvent {
-    public long id;
-    public long timestamp;
-    public String source = "capture";
-    public String protocol = "";
-    public String host = "";
-    public String ip = "";
-    public int port = -1;
-    public String method = "";
-    public String url = "";
-    public int status = -1;
-    public String appLabel = "";
-    public String appPackage = "";
-    public String tlsSni = "";
-    public String tlsAlpn = "";
-    public String tlsVersion = "";
-    public long bytes;
-    public String note = "";
-
-    @Override public String toString() {
-        String left = !method.isEmpty() ? method : protocol;
-        String target = !url.isEmpty() ? url : (!host.isEmpty() ? host : ip) + (port > 0 ? ":" + port : "");
-        String app = appLabel.isEmpty() ? "" : " • " + appLabel;
-        return left + "  " + target + app;
-    }
+ public long id,timestamp,projectId,bytes;public String source="capture",protocol="",host="",ip="",method="",url="",appLabel="",appPackage="",tlsSni="",tlsAlpn="",tlsVersion="",note="";public int port=-1,status=-1;
+ public JSONObject toJson(){JSONObject o=new JSONObject();try{o.put("id",id);o.put("timestamp",timestamp);o.put("projectId",projectId);o.put("source",source);o.put("protocol",protocol);o.put("host",host);o.put("ip",ip);o.put("port",port);o.put("method",method);o.put("url",url);o.put("status",status);o.put("appLabel",appLabel);o.put("appPackage",appPackage);o.put("tlsSni",tlsSni);o.put("tlsAlpn",tlsAlpn);o.put("tlsVersion",tlsVersion);o.put("bytes",bytes);o.put("note",note);}catch(JSONException e){throw new IllegalStateException(e);}return o;}
+ public static ProxyEvent fromJson(JSONObject o){ProxyEvent e=new ProxyEvent();e.id=o.optLong("id");e.timestamp=o.optLong("timestamp");e.projectId=o.optLong("projectId");e.source=o.optString("source","capture");e.protocol=o.optString("protocol","");e.host=o.optString("host","");e.ip=o.optString("ip","");e.port=o.optInt("port",-1);e.method=o.optString("method","");e.url=o.optString("url","");e.status=o.optInt("status",-1);e.appLabel=o.optString("appLabel","");e.appPackage=o.optString("appPackage","");e.tlsSni=o.optString("tlsSni","");e.tlsAlpn=o.optString("tlsAlpn","");e.tlsVersion=o.optString("tlsVersion","");e.bytes=o.optLong("bytes");e.note=o.optString("note","");return e;}
+ @Override public String toString(){String left=!method.isEmpty()?method:protocol;String target=!url.isEmpty()?url:(!host.isEmpty()?host:ip)+(port>0?":"+port:"");String app=appLabel.isEmpty()?"":" • "+appLabel;return left+"  "+target+app;}
 }
