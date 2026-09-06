@@ -11,6 +11,8 @@ public final class ProxyHistoryRepository {
  public static synchronized void addHttp(RequestRecord r,String source){ProxyEvent e=base(safe(source),"HTTP");e.timestamp=r.timestamp==0?System.currentTimeMillis():r.timestamp;e.method=safe(r.method);e.url=safe(r.url);e.status=r.statusCode;e.bytes=r.responseBody==null?0:r.responseBody.length();try{java.net.URL u=new java.net.URL(r.url);e.host=u.getHost();e.port=u.getPort()>0?u.getPort():u.getDefaultPort();}catch(Exception ignored){}put(e);save();WebSocketHistoryRepository.maybeRecord(r);}
  public static synchronized List<ProxyEvent> snapshotNewestFirst(){purge();ArrayList<ProxyEvent>out=new ArrayList<>(EVENTS.values());out.sort(Comparator.comparingLong((ProxyEvent e)->e.timestamp).reversed());return out;}
  public static synchronized List<ProxyEvent> snapshotActiveProject(){long p=project();ArrayList<ProxyEvent>out=new ArrayList<>();for(ProxyEvent e:snapshotNewestFirst())if(e.projectId==p||e.projectId==0)out.add(e);return out;}
+
+ public static synchronized int importItems(JSONArray a,long projectId){int n=0;if(a==null)return 0;for(int i=0;i<a.length()&&EVENTS.size()<MAX;i++){JSONObject o=a.optJSONObject(i);if(o==null)continue;ProxyEvent e=ProxyEvent.fromJson(o);e.id=IDS.getAndIncrement();e.projectId=projectId;EVENTS.put(e.id,e);n++;}save();return n;}
  public static synchronized void clear(){EVENTS.clear();TCP_TO_EVENT.clear();save();}
  private static ProxyEvent base(String source,String protocol){ProxyEvent e=new ProxyEvent();e.id=IDS.getAndIncrement();e.timestamp=System.currentTimeMillis();e.projectId=project();e.source=source;e.protocol=protocol;return e;}
  private static void put(ProxyEvent e){EVENTS.put(e.id,e);while(EVENTS.size()>MAX)EVENTS.remove(EVENTS.keySet().iterator().next());}

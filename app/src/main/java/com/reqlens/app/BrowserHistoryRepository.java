@@ -7,6 +7,8 @@ public final class BrowserHistoryRepository {
  public static synchronized void add(BrowserRequest item){if(item.projectId==0){try{item.projectId=ProjectRepository.active().id;}catch(Exception ignored){item.projectId=1;}}ITEMS.add(item);trim();save();ProxyHistoryRepository.addHttp(item.toRequestRecord(),"browser");}
  public static synchronized List<BrowserRequest> snapshotNewestFirst(){purgeExpired();ArrayList<BrowserRequest>out=new ArrayList<>(ITEMS);Collections.reverse(out);return out;}
  public static synchronized List<BrowserRequest> snapshotActiveProject(){long id=1;try{id=ProjectRepository.active().id;}catch(Exception ignored){}ArrayList<BrowserRequest>out=new ArrayList<>();for(BrowserRequest x:snapshotNewestFirst())if(x.projectId==id||x.projectId==0)out.add(x);return out;}
+
+ public static synchronized int importItems(JSONArray a,long projectId){int n=0;if(a==null)return 0;for(int i=0;i<a.length()&&ITEMS.size()<MAX;i++){JSONObject o=a.optJSONObject(i);if(o==null)continue;BrowserRequest x=BrowserRequest.fromJson(o);x.projectId=projectId;ITEMS.add(x);n++;}trim();save();return n;}
  public static synchronized int size(){return ITEMS.size();}public static synchronized void clear(){ITEMS.clear();save();}
  private static void trim(){while(ITEMS.size()>MAX)ITEMS.remove(0);purgeExpired();}
  private static void purgeExpired(){if(app==null)return;long cutoff=System.currentTimeMillis()-SuiteSettings.retentionDays(app)*86400000L;boolean changed=ITEMS.removeIf(x->x.timestamp>0&&x.timestamp<cutoff);if(changed)save();}
