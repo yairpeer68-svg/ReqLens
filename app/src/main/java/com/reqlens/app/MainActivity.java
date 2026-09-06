@@ -104,6 +104,10 @@ public final class MainActivity extends Activity {
         captureButton.setText("APP CAPTURE");
         captureButton.setOnClickListener(v -> startActivity(new Intent(this, CaptureActivity.class)));
         primaryRow.addView(captureButton, new LinearLayout.LayoutParams(0, dp(52), 1));
+        Button dashboardButton = new Button(this);
+        dashboardButton.setText("DASHBOARD");
+        dashboardButton.setOnClickListener(v -> startActivity(new Intent(this, DashboardActivity.class)));
+        primaryRow.addView(dashboardButton, new LinearLayout.LayoutParams(0, dp(52), 1));
         root.addView(primaryRow, matchWrap());
 
         LinearLayout toolsRow = new LinearLayout(this);
@@ -141,6 +145,10 @@ public final class MainActivity extends Activity {
         Button wsTool = new Button(this); wsTool.setText("WEBSOCKET"); wsTool.setOnClickListener(v -> startActivity(new Intent(this, WebSocketHistoryActivity.class)));
         labRow.addView(wsTool, new LinearLayout.LayoutParams(0, dp(46), 1));
         root.addView(labRow, matchWrap());
+        Button allTools = new Button(this);
+        allTools.setText("ALL TOOLS & SETTINGS");
+        allTools.setOnClickListener(v -> startActivity(new Intent(this, ToolsActivity.class)));
+        root.addView(allTools, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(46)));
 
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);

@@ -8,6 +8,7 @@ import android.os.Bundle;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.webkit.CookieManager;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
@@ -21,6 +22,7 @@ import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.widget.CheckBox;
 
 import java.util.Locale;
 import java.util.Map;
@@ -86,6 +88,16 @@ public final class BrowserActivity extends Activity {
         stats.setPadding(0, dp(4), 0, dp(4));
         root.addView(stats);
 
+        LinearLayout controls = new LinearLayout(this);
+        controls.setOrientation(LinearLayout.HORIZONTAL);
+        Button external = button("OPEN ↗", v -> { try { startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(web.getUrl()))); } catch (Exception e) { Toast.makeText(this, "Cannot open externally", Toast.LENGTH_SHORT).show(); } });
+        controls.addView(external, new LinearLayout.LayoutParams(0, dp(42), 1));
+        Button clearSite = button("CLEAR SITE DATA", v -> { CookieManager.getInstance().removeAllCookies(null); web.clearCache(true); web.clearHistory(); Toast.makeText(this, "Browser site data cleared", Toast.LENGTH_SHORT).show(); });
+        controls.addView(clearSite, new LinearLayout.LayoutParams(0, dp(42), 1));
+        Button settings = button("SETTINGS", v -> startActivity(new Intent(this, SettingsActivity.class)));
+        controls.addView(settings, new LinearLayout.LayoutParams(0, dp(42), 1));
+        root.addView(controls);
+
         web = new WebView(this);
         root.addView(web, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1));
         updateStats();
@@ -98,8 +110,8 @@ public final class BrowserActivity extends Activity {
 
     private void configureWebView() {
         WebSettings s = web.getSettings();
-        s.setJavaScriptEnabled(true);
-        s.setDomStorageEnabled(true);
+        s.setJavaScriptEnabled(SuiteSettings.javascript(this));
+        s.setDomStorageEnabled(!SuiteSettings.incognito(this));
         s.setBuiltInZoomControls(true);
         s.setDisplayZoomControls(false);
         s.setSupportZoom(true);
@@ -107,6 +119,8 @@ public final class BrowserActivity extends Activity {
         s.setAllowContentAccess(false);
         s.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
         s.setSafeBrowsingEnabled(true);
+        if (SuiteSettings.desktopUa(this)) s.setUserAgentString("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/140 Safari/537.36");
+        if (SuiteSettings.incognito(this)) { CookieManager.getInstance().setAcceptCookie(false); web.clearHistory(); web.clearCache(true); } else CookieManager.getInstance().setAcceptCookie(true);
 
         web.setWebChromeClient(new WebChromeClient() {
             @Override public void onProgressChanged(WebView view, int value) {
@@ -178,7 +192,7 @@ public final class BrowserActivity extends Activity {
     }
 
     private void updateStats() {
-        stats.setText("Requests: " + requestCount + "   Errors: " + errorCount + "   Saved: " + BrowserHistoryRepository.size() + "   •   Standard TLS validation");
+        stats.setText("Requests: " + requestCount + "   Errors: " + errorCount + "   Saved: " + BrowserHistoryRepository.size() + "   •   " + (SuiteSettings.incognito(this)?"Incognito • ":"") + (SuiteSettings.desktopUa(this)?"Desktop UA • ":"") + "Standard TLS validation");
     }
 
     @Override public boolean onKeyDown(int keyCode, KeyEvent event) {
