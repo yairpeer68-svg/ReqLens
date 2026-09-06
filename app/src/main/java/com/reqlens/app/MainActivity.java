@@ -67,6 +67,7 @@ public final class MainActivity extends Activity {
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
         ProjectRepository.init(this);
+        RequestAnnotationRepository.init(this);
         loadHistory();
         setContentView(buildUi());
         applyFilter();
