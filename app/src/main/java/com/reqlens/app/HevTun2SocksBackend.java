@@ -7,7 +7,7 @@ import android.net.Network;
 import android.net.VpnService;
 import android.os.ParcelFileDescriptor;
 
-import com.zaneschepke.hevtunnel.TProxyService;
+import org.amnezia.awg.hevtunnel.TProxyService;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -26,7 +26,7 @@ public final class HevTun2SocksBackend implements ForwardingBackend {
 
     @Override public boolean isAvailable() {
         try {
-            Class.forName("com.zaneschepke.hevtunnel.TProxyService", true, HevTun2SocksBackend.class.getClassLoader());
+            Class.forName("org.amnezia.awg.hevtunnel.TProxyService", true, HevTun2SocksBackend.class.getClassLoader());
             availabilityError = "";
             return true;
         } catch (Throwable t) {
