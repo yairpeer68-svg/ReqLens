@@ -1,175 +1,73 @@
 package com.reqlens.app;
 
-import android.app.Activity;
-import android.app.AlertDialog;
-import android.content.BroadcastReceiver;
-import android.content.Context;
-import android.content.Intent;
-import android.content.IntentFilter;
-import android.content.pm.ApplicationInfo;
-import android.content.pm.PackageManager;
+import android.app.*;
+import android.content.*;
+import android.content.pm.*;
+import android.graphics.Typeface;
+import android.graphics.drawable.Drawable;
 import android.net.VpnService;
 import android.os.Bundle;
-import android.view.View;
-import android.view.ViewGroup;
-import android.widget.ArrayAdapter;
-import android.widget.Button;
-import android.widget.LinearLayout;
-import android.widget.ListView;
-import android.widget.TextView;
+import android.text.Editable;
+import android.text.TextWatcher;
+import android.view.*;
+import android.widget.*;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import com.google.android.material.card.MaterialCardView;
+import java.util.*;
 
 public final class CaptureActivity extends Activity {
-    private static final int VPN_REQUEST = 301;
-    private final ArrayList<AppEntry> apps = new ArrayList<>();
-    private ArrayAdapter<AppEntry> adapter;
-    private TextView status;
+    private static final int VPN_REQUEST=301;
+    private final ArrayList<AppEntry> all=new ArrayList<>(), visible=new ArrayList<>();
+    private AppAdapter adapter; private TextView selectedText,status; private CheckBox mitm;
 
-    private final BroadcastReceiver receiver = new BroadcastReceiver() {
-        @Override public void onReceive(Context context, Intent intent) {
-            if (status != null) status.setText(intent.getStringExtra(CaptureVpnService.EXTRA_MESSAGE));
-        }
-    };
+    private final BroadcastReceiver receiver=new BroadcastReceiver(){@Override public void onReceive(Context c,Intent i){String m=i.getStringExtra(CaptureVpnService.EXTRA_MESSAGE);if(status!=null&&m!=null)status.setText(m);}};
 
-    @Override public void onCreate(Bundle state) {
-        super.onCreate(state);
-        setContentView(buildUi());
-        loadApps();
-    }
+    @Override public void onCreate(Bundle b){super.onCreate(b);setContentView(ui());loadApps();}
+    @Override protected void onStart(){super.onStart();IntentFilter f=new IntentFilter(CaptureVpnService.ACTION_STATE);if(android.os.Build.VERSION.SDK_INT>=33)registerReceiver(receiver,f,RECEIVER_NOT_EXPORTED);else registerReceiver(receiver,f);}
+    @Override protected void onStop(){try{unregisterReceiver(receiver);}catch(Exception ignored){}super.onStop();}
 
-    @Override protected void onStart() {
-        super.onStart();
-        IntentFilter f = new IntentFilter(CaptureVpnService.ACTION_STATE);
-        if (android.os.Build.VERSION.SDK_INT >= 33) registerReceiver(receiver, f, RECEIVER_NOT_EXPORTED);
-        else registerReceiver(receiver, f);
-    }
+    private View ui(){
+        LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setPadding(dp(16),dp(16),dp(16),dp(16));
+        TextView title=text("App Session",28,true);root.addView(title);
+        TextView sub=text("Pick one target app. Only that app is routed through ReqLens.",14,false);sub.setAlpha(.7f);sub.setPadding(0,0,0,dp(14));root.addView(sub);
 
-    @Override protected void onStop() {
-        try { unregisterReceiver(receiver); } catch (Exception ignored) { }
-        super.onStop();
-    }
+        MaterialCardView card=new MaterialCardView(this);card.setRadius(dp(22));
+        LinearLayout box=new LinearLayout(this);box.setOrientation(LinearLayout.VERTICAL);box.setPadding(dp(16),dp(16),dp(16),dp(16));
+        box.addView(text("CURRENT TARGET",12,true)); selectedText=text("No app selected",19,true);selectedText.setPadding(0,dp(6),0,dp(8));box.addView(selectedText);
+        mitm=new CheckBox(this);mitm.setText("Decrypt HTTPS for this app when it trusts the ReqLens CA");mitm.setChecked(getSharedPreferences("reqlens_capture",MODE_PRIVATE).getBoolean("app_mitm",false));box.addView(mitm);
+        TextView note=text("HTTPS decryption is app-specific. Apps that reject user CAs, use certificate pinning, or require mTLS will not decrypt; ReqLens does not bypass those protections.",12,false);note.setAlpha(.68f);box.addView(note);
+        LinearLayout actions=new LinearLayout(this);actions.setOrientation(LinearLayout.HORIZONTAL);
+        Button ca=new Button(this);ca.setText("CA SETUP");ca.setOnClickListener(v->startActivity(new Intent(this,MitmActivity.class)));actions.addView(ca,new LinearLayout.LayoutParams(0,dp(52),1));
+        Button start=new Button(this);start.setText("START SESSION");start.setOnClickListener(v->prepareVpn());actions.addView(start,new LinearLayout.LayoutParams(0,dp(52),1));box.addView(actions);
+        LinearLayout actions2=new LinearLayout(this);actions2.setOrientation(LinearLayout.HORIZONTAL);
+        Button stop=new Button(this);stop.setText("STOP");stop.setOnClickListener(v->stopCapture());actions2.addView(stop,new LinearLayout.LayoutParams(0,dp(48),1));
+        Button live=new Button(this);live.setText("LIVE TRAFFIC");live.setOnClickListener(v->startActivity(new Intent(this,LiveCaptureActivity.class)));actions2.addView(live,new LinearLayout.LayoutParams(0,dp(48),1));box.addView(actions2);
+        status=text("Idle",13,false);status.setPadding(0,dp(8),0,0);box.addView(status);card.addView(box);root.addView(card,new LinearLayout.LayoutParams(-1,-2));
 
-    private View buildUi() {
-        LinearLayout root = new LinearLayout(this);
-        root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(dp(12), dp(12), dp(12), dp(12));
-
-        TextView title = new TextView(this);
-        title.setText("App Capture Mode");
-        title.setTextSize(22);
-        root.addView(title, matchWrap());
-
-        status = new TextView(this);
-        status.setText(CaptureEngineState.STATUS + "\n" + CaptureEngineState.CAPABILITIES);
-        status.setPadding(0, dp(8), 0, dp(8));
-        root.addView(status, matchWrap());
-
-        LinearLayout buttons = new LinearLayout(this);
-        Button start = new Button(this);
-        start.setText("START CAPTURE");
-        start.setOnClickListener(v -> prepareVpn());
-        buttons.addView(start, new LinearLayout.LayoutParams(0, dp(50), 1));
-        Button stop = new Button(this);
-        stop.setText("STOP");
-        stop.setOnClickListener(v -> stopCapture());
-        buttons.addView(stop, new LinearLayout.LayoutParams(0, dp(50), 1));
-        root.addView(buttons, matchWrap());
-
-        Button live = new Button(this);
-        live.setText("LIVE CONNECTIONS");
-        live.setOnClickListener(v -> startActivity(new Intent(this, LiveCaptureActivity.class)));
-        root.addView(live, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(48)));
-
-        Button diagnostics = new Button(this);
-        diagnostics.setText("CAPTURE DIAGNOSTICS");
-        diagnostics.setOnClickListener(v -> startActivity(new Intent(this, DiagnosticsActivity.class)));
-        root.addView(diagnostics, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(48)));
-
-        TextView hint = new TextView(this);
-        hint.setText("Choose apps to route through ReqLens. For exact app attribution, select one app at a time; multi-app capture is supported but flows are grouped when Android cannot reliably recover the original UID after tun2socks translation.");
-        root.addView(hint, matchWrap());
-
-        ListView list = new ListView(this);
-        adapter = new ArrayAdapter<AppEntry>(this, android.R.layout.simple_list_item_1, apps);
-        list.setAdapter(adapter);
-        list.setOnItemClickListener((p, v, pos, id) -> {
-            AppEntry app = apps.get(pos);
-            app.selected = !app.selected;
-            saveSelection();
-            adapter.notifyDataSetChanged();
-        });
-        root.addView(list, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1));
+        EditText search=new EditText(this);search.setSingleLine(true);search.setHint("Search installed apps");search.setPadding(dp(12),dp(8),dp(12),dp(8));root.addView(search,new LinearLayout.LayoutParams(-1,dp(54)));
+        search.addTextChangedListener(new TextWatcher(){public void beforeTextChanged(CharSequence s,int st,int c,int a){}public void onTextChanged(CharSequence s,int st,int b,int c){filter(s.toString());}public void afterTextChanged(Editable e){}});
+        TextView pick=text("SELECT TARGET APP",12,true);pick.setAlpha(.65f);pick.setPadding(0,dp(8),0,dp(6));root.addView(pick);
+        ListView list=new ListView(this);adapter=new AppAdapter();list.setAdapter(adapter);list.setDividerHeight(0);list.setOnItemClickListener((p,v,pos,id)->select(visible.get(pos)));root.addView(list,new LinearLayout.LayoutParams(-1,0,1));
         return root;
     }
 
-    private void prepareVpn() {
-        if (selectedPackages().isEmpty()) {
-            new AlertDialog.Builder(this).setMessage("Select at least one app first.").setPositiveButton("OK", null).show();
-            return;
-        }
-        Intent intent = VpnService.prepare(this);
-        if (intent != null) startActivityForResult(intent, VPN_REQUEST);
-        else startCaptureService();
-    }
+    private void select(AppEntry hit){for(AppEntry a:all)a.selected=a.packageName.equals(hit.packageName);persistSelection(hit);adapter.notifyDataSetChanged();refreshSelected();}
+    private void persistSelection(AppEntry a){HashSet<String> one=new HashSet<>();one.add(a.packageName);getSharedPreferences("reqlens_capture",MODE_PRIVATE).edit().putStringSet("packages",one).putString("selected_package",a.packageName).putString("selected_label",a.label).apply();}
+    private void refreshSelected(){AppEntry s=selected();selectedText.setText(s==null?"No app selected":s.label+"\n"+s.packageName);}
+    private AppEntry selected(){for(AppEntry a:all)if(a.selected)return a;return null;}
+    private void filter(String q){String x=q==null?"":q.trim().toLowerCase(Locale.ROOT);visible.clear();for(AppEntry a:all)if(x.isEmpty()||a.label.toLowerCase(Locale.ROOT).contains(x)||a.packageName.toLowerCase(Locale.ROOT).contains(x))visible.add(a);if(adapter!=null)adapter.notifyDataSetChanged();}
 
-    @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode == VPN_REQUEST && resultCode == RESULT_OK) startCaptureService();
-        else if (requestCode == VPN_REQUEST) status.setText("VPN permission was not granted.");
-    }
+    private void prepareVpn(){AppEntry s=selected();if(s==null){new AlertDialog.Builder(this).setMessage("Select one target app first.").setPositiveButton("OK",null).show();return;}boolean decrypt=mitm.isChecked();getSharedPreferences("reqlens_capture",MODE_PRIVATE).edit().putBoolean("app_mitm",decrypt).apply();if(decrypt&&new MitmCaManager(this).loadStoredCertificate()==null){new AlertDialog.Builder(this).setTitle("ReqLens CA required").setMessage("Generate/export and install the ReqLens CA first. Then return and start the app session.").setPositiveButton("OPEN CA SETUP",(d,w)->startActivity(new Intent(this,MitmActivity.class))).setNegativeButton("CANCEL",null).show();return;}Intent i=VpnService.prepare(this);if(i!=null)startActivityForResult(i,VPN_REQUEST);else startServiceNow();}
+    @Override protected void onActivityResult(int req,int result,Intent data){super.onActivityResult(req,result,data);if(req==VPN_REQUEST&&result==RESULT_OK)startServiceNow();else if(req==VPN_REQUEST)status.setText("VPN permission was not granted");}
+    private void startServiceNow(){status.setText("Starting app-only VPN session…");Intent i=new Intent(this,CaptureVpnService.class).setAction(CaptureVpnService.ACTION_START);startForegroundService(i);}
+    private void stopCapture(){Intent i=new Intent(this,CaptureVpnService.class).setAction(CaptureVpnService.ACTION_STOP);startService(i);status.setText("Stopping…");}
 
-    private void startCaptureService() {
-        getSharedPreferences("reqlens_capture", MODE_PRIVATE).edit()
-                .putStringSet("packages", selectedPackages()).apply();
-        Intent i = new Intent(this, CaptureVpnService.class).setAction(CaptureVpnService.ACTION_START);
-        startForegroundService(i);
-    }
+    private void loadApps(){all.clear();String wanted=getSharedPreferences("reqlens_capture",MODE_PRIVATE).getString("selected_package","");PackageManager pm=getPackageManager();List<ApplicationInfo> installed=android.os.Build.VERSION.SDK_INT>=33?pm.getInstalledApplications(PackageManager.ApplicationInfoFlags.of(0)):pm.getInstalledApplications(0);for(ApplicationInfo ai:installed){if(ai.packageName.equals(getPackageName())||pm.getLaunchIntentForPackage(ai.packageName)==null)continue;String label=String.valueOf(pm.getApplicationLabel(ai));all.add(new AppEntry(label,ai.packageName,ai.uid,ai.packageName.equals(wanted)));}Collections.sort(all);visible.clear();visible.addAll(all);adapter.notifyDataSetChanged();refreshSelected();}
 
-    private void stopCapture() {
-        Intent i = new Intent(this, CaptureVpnService.class).setAction(CaptureVpnService.ACTION_STOP);
-        startService(i);
+    private final class AppAdapter extends BaseAdapter{
+        public int getCount(){return visible.size();}public Object getItem(int p){return visible.get(p);}public long getItemId(int p){return visible.get(p).uid;}
+        public View getView(int p,View reuse,ViewGroup parent){AppEntry a=visible.get(p);LinearLayout row=new LinearLayout(CaptureActivity.this);row.setOrientation(LinearLayout.HORIZONTAL);row.setGravity(Gravity.CENTER_VERTICAL);row.setPadding(dp(10),dp(9),dp(10),dp(9));ImageView icon=new ImageView(CaptureActivity.this);try{Drawable d=getPackageManager().getApplicationIcon(a.packageName);icon.setImageDrawable(d);}catch(Exception ignored){}row.addView(icon,new LinearLayout.LayoutParams(dp(42),dp(42)));LinearLayout txt=new LinearLayout(CaptureActivity.this);txt.setOrientation(LinearLayout.VERTICAL);txt.setPadding(dp(12),0,0,0);TextView l=text((a.selected?"✓  ":"")+a.label,16,a.selected);TextView pkg=text(a.packageName,12,false);pkg.setAlpha(.58f);txt.addView(l);txt.addView(pkg);row.addView(txt,new LinearLayout.LayoutParams(0,-2,1));return row;}
     }
-
-    private void loadApps() {
-        apps.clear();
-        Set<String> selected = getSharedPreferences("reqlens_capture", MODE_PRIVATE)
-                .getStringSet("packages", Collections.emptySet());
-        PackageManager pm = getPackageManager();
-        List<ApplicationInfo> installed;
-        if (android.os.Build.VERSION.SDK_INT >= 33) {
-            installed = pm.getInstalledApplications(PackageManager.ApplicationInfoFlags.of(0));
-        } else {
-            //noinspection deprecation
-            installed = pm.getInstalledApplications(0);
-        }
-        for (ApplicationInfo ai : installed) {
-            if (ai.packageName.equals(getPackageName())) continue;
-            Intent launch = pm.getLaunchIntentForPackage(ai.packageName);
-            if (launch == null) continue;
-            String label = String.valueOf(pm.getApplicationLabel(ai));
-            apps.add(new AppEntry(label, ai.packageName, ai.uid, selected.contains(ai.packageName)));
-        }
-        Collections.sort(apps);
-        adapter.notifyDataSetChanged();
-    }
-
-    private Set<String> selectedPackages() {
-        HashSet<String> out = new HashSet<>();
-        for (AppEntry app : apps) if (app.selected) out.add(app.packageName);
-        return out;
-    }
-
-    private void saveSelection() {
-        getSharedPreferences("reqlens_capture", MODE_PRIVATE).edit().putStringSet("packages", selectedPackages()).apply();
-    }
-
-    private LinearLayout.LayoutParams matchWrap() {
-        return new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-    }
-    private int dp(int n) { return Math.round(n * getResources().getDisplayMetrics().density); }
+    private TextView text(String s,int z,boolean b){TextView t=new TextView(this);t.setText(s);t.setTextSize(z);if(b)t.setTypeface(Typeface.DEFAULT_BOLD);return t;}
+    private int dp(int n){return Math.round(n*getResources().getDisplayMetrics().density);}
 }

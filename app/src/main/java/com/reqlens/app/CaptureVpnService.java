@@ -59,8 +59,9 @@ public final class CaptureVpnService extends VpnService {
             session = new CaptureSession(java.util.UUID.randomUUID().toString(), System.currentTimeMillis());
             CaptureRuntime.FLOWS.clear();
             backend.start(this, packages, backendObserver);
-            updateNotification("Capturing " + packages.size() + " app(s)");
-            broadcast("Capture running with " + backend.name() + " for " + packages.size() + " app(s)");
+            boolean appMitm = getSharedPreferences("reqlens_capture", MODE_PRIVATE).getBoolean("app_mitm", false);
+            updateNotification((appMitm ? "Decrypting HTTPS • " : "Capturing • ") + singlePackage);
+            broadcast((appMitm ? "App-only HTTPS decryption running" : "App-only capture running") + " for " + singlePackage);
             return START_STICKY;
         } catch (Throwable e) {
             shutdown("Capture start failed safely: " + e.getClass().getSimpleName() + ": " + safe(e.getMessage()));
@@ -162,6 +163,9 @@ public final class CaptureVpnService extends VpnService {
     private void shutdown(String message) {
         if (session != null && session.isRunning()) { session.stoppedAt = System.currentTimeMillis(); session.stopReason = message; }
         try { backend.stop(); } catch (Throwable ignored) { }
+        if (getSharedPreferences("reqlens_capture", MODE_PRIVATE).getBoolean("app_mitm", false)) {
+            try { MitmProxyServer.get(this).stop(); } catch (Throwable ignored) { }
+        }
         if (flowRepository != null) flowRepository.save(CaptureRuntime.FLOWS.snapshotNewestFirst());
         broadcast(message);
         if (Build.VERSION.SDK_INT >= 24) stopForeground(STOP_FOREGROUND_REMOVE); else stopForeground(true);

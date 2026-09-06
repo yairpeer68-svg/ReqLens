@@ -23,6 +23,7 @@ public final class HevTun2SocksBackend implements ForwardingBackend {
     private LocalSocks5Server socks;
     private volatile boolean started;
     private volatile String availabilityError = "";
+    private boolean appMitm;
 
     @Override public boolean isAvailable() {
         try {
@@ -56,6 +57,13 @@ public final class HevTun2SocksBackend implements ForwardingBackend {
             if (all.length == 0) throw new java.net.UnknownHostException(host);
             return all[0];
         };
+        appMitm = service.getSharedPreferences("reqlens_capture", android.content.Context.MODE_PRIVATE).getBoolean("app_mitm", false);
+        int mitmPort = -1;
+        if (appMitm) {
+            if (packages.size() != 1) throw new IllegalStateException("Per-app HTTPS decryption requires exactly one selected app");
+            mitmPort = MitmProxyServer.get(service).start();
+        }
+
         socks = new LocalSocks5Server(new LocalSocks5Server.Protector() {
             @Override public boolean protect(java.net.Socket socket) { return service.protect(socket); }
             @Override public boolean protect(java.net.DatagramSocket socket) { return service.protect(socket); }
@@ -66,7 +74,7 @@ public final class HevTun2SocksBackend implements ForwardingBackend {
             @Override public void onUdpDatagram(long id, String host, String ip, int port, byte[] payload, int length, boolean outbound) {
                 observer.onUdpDatagram(id, host, ip, port, payload, length, outbound);
             }
-        });
+        }, mitmPort);
         int socksPort = socks.start();
 
         try {
@@ -109,6 +117,7 @@ public final class HevTun2SocksBackend implements ForwardingBackend {
         tun = null;
         if (socks != null) try { socks.stop(); } catch (Exception ignored) { }
         socks = null;
+        appMitm = false;
         started = false;
     }
 

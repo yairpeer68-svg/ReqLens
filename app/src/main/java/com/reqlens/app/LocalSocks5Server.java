@@ -39,6 +39,7 @@ public final class LocalSocks5Server {
     private final Protector protector;
     private final Resolver resolver;
     private final Observer observer;
+    private final int mitmPort;
     private final ExecutorService workers;
     private final AtomicLong ids = new AtomicLong(1);
     private final Set<Socket> activeClients = ConcurrentHashMap.newKeySet();
@@ -47,9 +48,14 @@ public final class LocalSocks5Server {
     private Thread acceptThread;
 
     public LocalSocks5Server(Protector protector, Resolver resolver, Observer observer) {
+        this(protector, resolver, observer, -1);
+    }
+
+    public LocalSocks5Server(Protector protector, Resolver resolver, Observer observer, int mitmPort) {
         this.protector = protector;
         this.resolver = resolver;
         this.observer = observer;
+        this.mitmPort = mitmPort;
         this.workers = Executors.newCachedThreadPool(new ThreadFactory() {
             private final AtomicLong n = new AtomicLong();
             @Override public Thread newThread(Runnable r) {
@@ -127,6 +133,10 @@ public final class LocalSocks5Server {
     }
 
     private void handleConnect(Socket client, InputStream clientIn, OutputStream clientOut, Request req) throws IOException {
+        if (mitmPort > 0 && req.port == 443) {
+            handleMitmConnect(client, clientIn, clientOut, req);
+            return;
+        }
         InetAddress remoteAddress = resolve(req.address);
         long id = ids.getAndIncrement();
         Socket remote = new Socket();
@@ -146,6 +156,47 @@ public final class LocalSocks5Server {
             if (!successReplySent) try { sendReply(clientOut, 5, null, 0); } catch (Exception ignored) { }
             throw e;
         } finally { close(remote); }
+    }
+
+
+    private void handleMitmConnect(Socket client, InputStream clientIn, OutputStream clientOut, Request req) throws IOException {
+        long id = ids.getAndIncrement();
+        String host = req.address.display();
+        Socket proxy = new Socket();
+        boolean successReplySent = false;
+        try {
+            proxy.setTcpNoDelay(true);
+            proxy.connect(new InetSocketAddress(loopback4(), mitmPort), 5000);
+            OutputStream proxyOut = proxy.getOutputStream();
+            InputStream proxyIn = proxy.getInputStream();
+            String authority = host + ":" + req.port;
+            proxyOut.write(("CONNECT " + authority + " HTTP/1.1\r\nHost: " + authority + "\r\nProxy-Connection: keep-alive\r\n\r\n").getBytes(StandardCharsets.ISO_8859_1));
+            proxyOut.flush();
+            String response = readHttpHeader(proxyIn, 16384);
+            if (!response.startsWith("HTTP/1.1 200") && !response.startsWith("HTTP/1.0 200"))
+                throw new IOException("MITM proxy CONNECT failed: " + response.split("\r?\n", 2)[0]);
+            sendReply(clientOut, 0, loopback4(), 0);
+            successReplySent = true;
+            observer.onTcpOpened(id, host, "127.0.0.1", req.port);
+            workers.execute(() -> pumpRemoteToClient(id, proxyIn, clientOut, client));
+            pumpClientToRemote(id, clientIn, proxyOut);
+        } catch (IOException e) {
+            if (!successReplySent) try { sendReply(clientOut, 5, null, 0); } catch (Exception ignored) { }
+            throw e;
+        } finally { close(proxy); }
+    }
+
+    private static String readHttpHeader(InputStream in, int max) throws IOException {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        int state = 0;
+        while (out.size() < max) {
+            int x = in.read();
+            if (x < 0) break;
+            out.write(x);
+            state = (state == 0 && x == '\r') ? 1 : (state == 1 && x == '\n') ? 2 : (state == 2 && x == '\r') ? 3 : (state == 3 && x == '\n') ? 4 : 0;
+            if (state == 4) break;
+        }
+        return out.toString(StandardCharsets.ISO_8859_1.name());
     }
 
     private void pumpClientToRemote(long id, InputStream in, OutputStream out) throws IOException {
