@@ -37,6 +37,8 @@ public final class BrowserActivity extends Activity {
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
+        ProjectRepository.init(this);
+        BrowserHistoryRepository.init(this);
         setContentView(buildUi());
         configureWebView();
         String start = getIntent().getStringExtra("url");

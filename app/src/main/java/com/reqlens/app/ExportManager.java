@@ -15,16 +15,16 @@ public final class ExportManager {
     private ExportManager() {}
 
     public static File writeJson(Context context, List<FlowRecord> records, boolean redact) throws Exception {
-        return write(context, "reqlens-flows-" + System.currentTimeMillis() + ".json",
+        return writeText(context, "reqlens-flows-" + System.currentTimeMillis() + ".json",
                 FlowExporter.toJson(records, redact));
     }
 
     public static File writeCsv(Context context, List<FlowRecord> records) throws Exception {
-        return write(context, "reqlens-flows-" + System.currentTimeMillis() + ".csv",
+        return writeText(context, "reqlens-flows-" + System.currentTimeMillis() + ".csv",
                 FlowExporter.toCsv(records));
     }
 
-    private static File write(Context context, String name, String content) throws Exception {
+    public static File writeText(Context context, String name, String content) throws Exception {
         File dir = new File(context.getCacheDir(), "exports");
         if (!dir.exists() && !dir.mkdirs()) throw new IllegalStateException("Could not create export directory");
         File file = new File(dir, name);
