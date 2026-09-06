@@ -11,8 +11,12 @@
     <application
         android:allowBackup="false"
         android:label="ReqLens"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
         android:usesCleartextTraffic="true"
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
+        <activity android:name=".BrowserActivity" android:exported="false" />
+        <activity android:name=".BrowserHistoryActivity" android:exported="false" />
         <activity android:name=".ProxyHistoryActivity" android:exported="false" />
         <activity android:name=".InterceptActivity" android:exported="false" />
         <activity android:name=".RulesActivity" android:exported="false" />

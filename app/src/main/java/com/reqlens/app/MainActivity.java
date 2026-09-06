@@ -94,10 +94,17 @@ public final class MainActivity extends Activity {
         note.setPadding(0, dp(4), 0, dp(10));
         root.addView(note, matchWrap());
 
+        LinearLayout primaryRow = new LinearLayout(this);
+        primaryRow.setOrientation(LinearLayout.HORIZONTAL);
+        Button browserButton = new Button(this);
+        browserButton.setText("BROWSER");
+        browserButton.setOnClickListener(v -> startActivity(new Intent(this, BrowserActivity.class)));
+        primaryRow.addView(browserButton, new LinearLayout.LayoutParams(0, dp(52), 1));
         Button captureButton = new Button(this);
-        captureButton.setText("APP CAPTURE MODE");
+        captureButton.setText("APP CAPTURE");
         captureButton.setOnClickListener(v -> startActivity(new Intent(this, CaptureActivity.class)));
-        root.addView(captureButton, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(50)));
+        primaryRow.addView(captureButton, new LinearLayout.LayoutParams(0, dp(52), 1));
+        root.addView(primaryRow, matchWrap());
 
         LinearLayout toolsRow = new LinearLayout(this);
         toolsRow.setOrientation(LinearLayout.HORIZONTAL);
