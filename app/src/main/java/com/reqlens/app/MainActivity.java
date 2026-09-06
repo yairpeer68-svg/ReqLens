@@ -107,6 +107,10 @@ public final class MainActivity extends Activity {
         captureButton.setText("APP CAPTURE");
         captureButton.setOnClickListener(v -> startActivity(new Intent(this, CaptureActivity.class)));
         primaryRow.addView(captureButton, new LinearLayout.LayoutParams(0, dp(52), 1));
+        Button mitmButton = new Button(this);
+        mitmButton.setText("HTTPS MITM");
+        mitmButton.setOnClickListener(v -> startActivity(new Intent(this, MitmActivity.class)));
+        primaryRow.addView(mitmButton, new LinearLayout.LayoutParams(0, dp(52), 1));
         Button dashboardButton = new Button(this);
         dashboardButton.setText("DASHBOARD");
         dashboardButton.setOnClickListener(v -> startActivity(new Intent(this, DashboardActivity.class)));
